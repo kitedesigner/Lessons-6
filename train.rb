@@ -1,83 +1,111 @@
-require_relative '../modules/manufacturer.rb'
-require_relative '../modules/instance_counter.rb'
+require_relative 'instance_counter.rb'
+require_relative 'manufacturer.rb'
+
 class Train
   include Manufacturer
   include InstanceCounter
-  attr_reader :speed, :type, :route, :current_station_index, :number
+  attr_reader :type, :speed, :route, :wagons, :number
 
-  @@trains = []
-  def self.find(number)
-    @@trains.find { |train| train.number == number }
-  end
+  FORMAT_NUMBER = /^[a-zа-я\d]{3}[-]?[a-zа-я\d]{2}$/i
+  FORMAT_NUMBER__ERROR = 'Неверный формат номера'
+  EMPTY_NUMBER_ERROR = 'Введен пустой номер'
 
-  def initialize(number)
+  @@trains = {}
+
+  def initialize(number, type)
     @number = number
-    @cars = []
+    @type = type
     @speed = 0
+    @wagons = []
     validate!
-    @@trains << self
+    @@trains[number] = self
     register_instance
   end
 
-  def increase_speed
-    @speed += 10
+  def self.all
+    @@trains.values
   end
 
-  def stop_train
+  def self.find(number)
+    @@trains[number]
+  end
+
+  def increase_speed(speed)
+    @speed += speed if speed > 0
+  end
+
+  def decrease_speed(speed)
+    if @speed - speed < 0
+      @speed  = 0
+    else
+      @speed -= speed
+    end
+  end
+
+  def stop
     @speed = 0
   end
 
-  def add_car(car)
-    @cars << car if speed == 0 && car.type == type
+  def add_wagon(wagon)
+    @wagons << wagon if attachable_wagon?(wagon)
   end
 
-  def unhook_car
-    @cars.pop
+  def remove_wagon(remove_wagon)
+    # Удаление только из массива @wagons для поезда, вагон продолжает существовать
+    # в массиве с аналогичном названием в MainMenu.
+    @wagons.delete(remove_wagon)
   end
 
-  def assign_route(route)
+  def set_route(route)
     @route = route
-    route.start_station.arrival self
     @current_station_index = 0
+    route.first_station.accept_train(self)
   end
 
-  def go_to_next_station
+  def move_to_next_station
     if next_station
-      current_station.departure self
+      current_station.send_train(self)
+      next_station.accept_train(self)
       @current_station_index += 1
-      current_station.arrival self
     end
   end
 
-  def go_to_previous_station
+  def move_to_previous_station
     if previous_station
-      current_station.departure self
+      current_station.send_train(self)
+      previous_station.accept_train(self)
       @current_station_index -= 1
-      current_station.arrival self
     end
+  end
+
+  protected
+
+=begin
+  Три метода поиска станций не должны быть открыты для кода извне, вызов
+  только внутри методов объекта класса, и используются
+  в наследуемых классах (CargoTrain, PassengerTrain) - protected
+=end
+  def current_station
+    route.stations[@current_station_index]
+  end
+
+  def previous_station
+    route.stations[@current_station_index - 1] unless @current_station_index == 0
+  end
+
+  def next_station
+    route.stations[@current_station_index + 1]
   end
 
   def valid?
     validate!
+    true
   rescue
     false
   end
 
-  private
-
-  def next_station
-    route.stations[current_station_index + 1]
-  end
-
-  def previous_station
-    route.stations[current_station_index - 1]
-  end
-
-  def current_station
-    route.stations[current_station_index]
-  end
-
   def validate!
-    raise 'Введенный номер не соответствует формату' if number !~ /[A-zА-я0-9]{3}-?[A-zА-я0-9]{2}/
+    raise EMPTY_NUMBER_ERROR if @number.nil?
+    raise FORMAT_NUMBER__ERROR if @number !~ FORMAT_NUMBER
   end
 end

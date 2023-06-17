@@ -1,40 +1,49 @@
-require_relative 'modules/instance_counter.rb'
+require_relative '../lib/instance_counter'
 
 class Route
   include InstanceCounter
-  attr_reader :start_station, :end_station
 
-  def initialize(start_station, end_station)
-    @start_station = start_station
-    @end_station = end_station
-    @in_between_stations = []
+  attr_reader :stations
+
+  NO_EXIST_STATION_ERROR = 'Одна или более станций не существует'
+  EQUALS_STATION_ERROR = 'Начальная и конечная станции совпадают'
+
+  def initialize(first_station, last_station)
+    @stations = [first_station, last_station]
     validate!
     register_instance
   end
 
-  def delete_station(station)
-    @in_between_stations.delete station
+  def first_station
+    stations.first
+  end
+
+  def last_station
+    stations.last
   end
 
   def add_station(station)
-    @in_between_stations.push station
+    stations.insert(-2, station)
   end
 
-  def stations
-    [@start_station] + @in_between_stations + [@end_station]
+  def delete_station(station)
+    return if [first_station, last_station].include?(station)
+    stations.delete(station)
+  end
+
+  def show_stations
+    stations.each { |station| puts station.name }
   end
 
   def valid?
     validate!
+    true
   rescue
     false
   end
 
-  private
-
   def validate!
-    if [start_station, end_station].any? { |station| !station.is_a? Station }
-      raise 'Необходимы станции для создания маршрута'
-    end
+    raise NO_EXIST_STATION_ERROR unless @stations.first.is_a?(Station) && @stations.last.is_a?(Station)
+    raise EQUALS_STATION_ERROR if @stations.first.is_a?(Station) == @stations.last.is_a?(Station)
   end
 end

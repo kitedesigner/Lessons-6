@@ -1,8 +1,9 @@
-require_relative 'train'
-
 class PassengerTrain < Train
-  def initialize(number)
-    @type = :passenger
-    super
+  def initialize(name)
+    super(name, :passenger)
+  end
+
+  def attachable_wagon?(wagon)
+    wagon.is_a?(PassengerWagon)
   end
 end
